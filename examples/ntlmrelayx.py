@@ -126,13 +126,21 @@ class MiniShell(cmd.Cmd):
             logging.error("ERROR: %s" % str(e))
         else:
             if len(items) > 0:
-                adminItems = []
+                adminItems      = []
+                deadConnections = []
                 for item in items:
                     if item[3] == "TRUE":
                         adminItems.append(item)
-                self.printTable(adminItems, header=headers)
+                    elif item[3] == "N/A":
+                        pass #This protects connections that might not be using a socks connection like mssql
+                    else:
+                        deadConnections.append(item)
+                if len(adminItems) > 0:
+                    self.printTable(adminItems, header=headers)
+                if len(deadConnections) > 0:
+                    removeNonAdminSocks(deadConnections)
             else:
-                logging.info('No Admin relays Available!')
+                logging.info('No admin Relays Available!')
 
 
     def do_startservers(self, line):
@@ -219,6 +227,12 @@ def stop_servers(threads):
         threads.remove(thread)
         del thread
 
+
+def removeNonAdminSocks(connectionsList):
+    for connection in connectionsList:
+        del socksServer.activeRelays[connection[1]][int(connection[4])][connection[2]]
+
+        
 # Process command-line arguments.
 if __name__ == '__main__':
 
@@ -414,8 +428,9 @@ if __name__ == '__main__':
         socks_thread.daemon = True
         socks_thread.start()
         threads.add(socks_thread)
+        print(socksServer.activeRelays)
 
-    c = start_servers(options, threads)
+    c = start_servers(options, threads) #This is the start of the do_commands. Is it possible we can access the activeRelays in the class SOCKS these threads are built from?
 
     print("")
     logging.info("Servers started, waiting for connections")
